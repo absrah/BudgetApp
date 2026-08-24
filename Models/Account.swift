@@ -5,7 +5,11 @@ import SwiftData
 final class Account {
     var id: UUID = UUID()
 
-    @Attribute(.unique) var name: String
+    // FIX #4: no @Attribute(.unique) here.
+    // CloudKit does not support unique constraints, and adding sync
+    // later would mean removing this and de-duplicating by hand.
+    // Uniqueness is enforced in the UI instead (see nameExists below).
+    var name: String
     var type: AccountType
 
     /// Money is Decimal, never Double — exact base-10 arithmetic.
@@ -45,6 +49,15 @@ final class Account {
     /// transactions it's derived from.
     var currentBalance: Decimal {
         transactions.reduce(openingBalance) { $0 + $1.signedAmount }
+    }
+
+    /// Case-insensitive duplicate check, replacing the removed
+    /// @Attribute(.unique). Call before inserting a new account.
+    static func nameExists(_ name: String, in accounts: [Account], excluding: Account? = nil) -> Bool {
+        let target = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return accounts.contains {
+            $0.id != excluding?.id && $0.name.lowercased() == target
+        }
     }
 
     var formattedBalance: String {

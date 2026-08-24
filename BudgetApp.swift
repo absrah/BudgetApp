@@ -1,40 +1,74 @@
 import SwiftUI
 import SwiftData
 
-/// The app's entry point. Replaces whatever Xcode auto-generated when
-/// you created the project (the file named BudgetAppApp.swift or similar).
-///
-/// If Xcode named the struct differently, keep ITS name — the @main
-/// attribute must sit on exactly one struct in the whole project.
 @main
 struct BudgetApp: App {
 
-    /// The container holding all four models. Built once here and shared
-    /// through the environment, which is what makes @Query and
-    /// @Environment(\.modelContext) work in every view below.
-    let container: ModelContainer
+    // FIX #6: previously this used fatalError, which presents to you as
+    // an unexplained crash on launch with no way to tell what went wrong
+    // or recover your data. Now a failure shows a readable screen with
+    // the actual error, which matters most during schema migrations —
+    // exactly when this is likely to break.
+    private let container: ModelContainer?
+    private let startupError: Error?
 
     init() {
         do {
-            container = try ModelContainer(
+            let container = try ModelContainer(
                 for: Account.self, Category.self, Budget.self, Transaction.self
             )
+            self.container = container
+            self.startupError = nil
+            SeedDataService.seedIfNeeded(context: container.mainContext)
         } catch {
-            // If the container can't be created the app genuinely cannot
-            // function, so crashing with a clear message beats limping on.
-            fatalError("Failed to create ModelContainer: \(error)")
+            self.container = nil
+            self.startupError = error
         }
-
-        // Seed on first launch only — the service handles that check.
-        // mainContext is used because seeding is quick and happens
-        // before any UI appears.
-        SeedDataService.seedIfNeeded(context: container.mainContext)
     }
 
     var body: some Scene {
         WindowGroup {
-            RootView()
+            if let container {
+                RootView()
+                    .modelContainer(container)
+            } else {
+                StartupErrorView(error: startupError)
+            }
         }
-        .modelContainer(container)
+    }
+}
+
+/// Shown only when the database can't be opened. Deliberately plain —
+/// it can't rely on anything from the model layer.
+struct StartupErrorView: View {
+    let error: Error?
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 44))
+                .foregroundStyle(.orange)
+
+            Text("Couldn't open your data")
+                .font(.title2.weight(.semibold))
+
+            Text("The database failed to load. This usually means the data model changed without a migration.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            if let error {
+                // The raw error, so a failure is diagnosable from the
+                // device instead of requiring a Mac and a debugger.
+                Text(String(describing: error))
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.leading)
+                    .textSelection(.enabled)
+                    .padding()
+                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+            }
+        }
+        .padding(32)
     }
 }

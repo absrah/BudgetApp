@@ -1,23 +1,28 @@
 import SwiftUI
 import SwiftData
 
-struct AddTransactionView: View {
+/// One form for both adding and editing (FIX #5). Present it with
+/// `TransactionFormView()` to create, or `TransactionFormView(transaction:)`
+/// to edit an existing record.
+struct TransactionFormView: View {
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
 
-    // The ViewModel is owned by this view and lives as long as it does.
-    // @State is correct for @Observable classes in iOS 17+ (you no
-    // longer use @StateObject for these).
-    @State private var viewModel = AddTransactionViewModel()
+    @State private var viewModel: TransactionFormViewModel
 
-    // Pickers need the available options, so this view queries them.
     @Query(sort: \Account.name) private var accounts: [Account]
     @Query(sort: \Category.name) private var categories: [Category]
 
-    // Puts the keyboard straight into the amount field on open —
-    // small thing, but it's the field you always fill first.
     @FocusState private var amountFocused: Bool
+
+    init() {
+        _viewModel = State(initialValue: TransactionFormViewModel())
+    }
+
+    init(transaction: Transaction) {
+        _viewModel = State(initialValue: TransactionFormViewModel(transaction: transaction))
+    }
 
     var body: some View {
         NavigationStack {
@@ -26,7 +31,7 @@ struct AddTransactionView: View {
                 detailsSection
                 noteSection
             }
-            .navigationTitle("New Transaction")
+            .navigationTitle(viewModel.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -39,17 +44,15 @@ struct AddTransactionView: View {
             }
             .onAppear {
                 viewModel.applyDefaults(accounts: accounts, categories: categories)
-                amountFocused = true
+                // Only steal focus when creating — when editing you're
+                // usually here to change one specific field.
+                amountFocused = !viewModel.isEditing ? true : false
             }
         }
     }
 
-    // MARK: - Sections
-
     private var amountSection: some View {
         Section {
-            // Expense/Income toggle up top, since it changes what the
-            // amount means.
             Picker("Type", selection: $viewModel.type) {
                 ForEach(TransactionType.allCases, id: \.self) { type in
                     Text(type.rawValue).tag(type)
@@ -58,7 +61,7 @@ struct AddTransactionView: View {
             .pickerStyle(.segmented)
 
             HStack {
-                Text(Decimal.localCurrencyCode)
+                Text(viewModel.selectedAccount?.currencyCode ?? Decimal.localCurrencyCode)
                     .foregroundStyle(.secondary)
 
                 TextField("0.00", text: $viewModel.amountText)
@@ -79,8 +82,6 @@ struct AddTransactionView: View {
     private var detailsSection: some View {
         Section {
             if accounts.isEmpty {
-                // Guard rail: you can't save without an account, so say
-                // so plainly rather than showing an empty picker.
                 Label("Add an account in Settings first", systemImage: "exclamationmark.triangle")
                     .foregroundStyle(.orange)
                     .font(.callout)
@@ -104,7 +105,7 @@ struct AddTransactionView: View {
             DatePicker(
                 "Date",
                 selection: $viewModel.date,
-                in: ...Date.now,          // no future-dating transactions
+                in: ...Date.now,
                 displayedComponents: .date
             )
         }
@@ -117,11 +118,7 @@ struct AddTransactionView: View {
         }
     }
 
-    // MARK: - Actions
-
     private func save() {
-        // Only dismiss if the save actually succeeded — otherwise the
-        // sheet would close and silently lose the entry.
         if viewModel.save(context: context) {
             dismiss()
         }
@@ -129,6 +126,6 @@ struct AddTransactionView: View {
 }
 
 #Preview {
-    AddTransactionView()
+    TransactionFormView()
         .modelContainer(for: [Account.self, Category.self, Budget.self, Transaction.self])
 }

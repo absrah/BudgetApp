@@ -15,6 +15,8 @@ struct TransactionListView: View {
     @Environment(\.modelContext) private var context
 
     @State private var showingAddSheet = false
+    /// FIX #5: tapping a row opens the same form in edit mode.
+    @State private var editingTransaction: Transaction?
     @State private var searchText = ""
 
     var body: some View {
@@ -37,7 +39,12 @@ struct TransactionListView: View {
             }
         }
         .sheet(isPresented: $showingAddSheet) {
-            AddTransactionView()
+            TransactionFormView()
+        }
+        // item-based sheet: presents whenever editingTransaction is set,
+        // and hands the form the record that was tapped.
+        .sheet(item: $editingTransaction) { transaction in
+            TransactionFormView(transaction: transaction)
         }
     }
 
@@ -57,7 +64,13 @@ struct TransactionListView: View {
             ForEach(groupedByMonth, id: \.key) { group in
                 Section {
                     ForEach(group.transactions) { transaction in
-                        TransactionRowView(transaction: transaction)
+                        Button {
+                            editingTransaction = transaction
+                        } label: {
+                            TransactionRowView(transaction: transaction)
+                        }
+                        // keeps the row looking like a row, not a blue link
+                        .buttonStyle(.plain)
                     }
                     .onDelete { offsets in
                         delete(at: offsets, in: group.transactions)

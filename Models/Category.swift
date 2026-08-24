@@ -5,7 +5,11 @@ import SwiftData
 final class Category {
     var id: UUID = UUID()
 
-    @Attribute(.unique) var name: String
+    // FIX #4: no @Attribute(.unique) here.
+    // CloudKit does not support unique constraints, and adding sync
+    // later would mean removing this and de-duplicating by hand.
+    // Uniqueness is enforced in the UI instead (see nameExists below).
+    var name: String
     var icon: String
     var colorHex: String
 
@@ -112,6 +116,15 @@ final class Category {
         else { return }
         budgetOverrides.removeAll { $0.id == existing.id }
         context.delete(existing)
+    }
+
+    /// Case-insensitive duplicate check, replacing what @Attribute(.unique)
+    /// used to do at the database level. Call this before inserting.
+    static func nameExists(_ name: String, in categories: [Category], excluding: Category? = nil) -> Bool {
+        let target = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return categories.contains {
+            $0.id != excluding?.id && $0.name.lowercased() == target
+        }
     }
 
     /// Distinct months that actually have transactions, up to `date`.
