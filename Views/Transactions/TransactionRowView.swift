@@ -35,7 +35,9 @@ struct TransactionRowView: View {
             Spacer()
 
             // Expenses read red and negative, income green and positive.
-            Text(transaction.signedAmount.asSignedCurrency)
+            // Uses the transaction's OWN stored currency, not the
+            // phone's current region.
+            Text(transaction.formattedSignedAmount)
                 .font(.body.weight(.medium))
                 .foregroundStyle(transaction.type == .expense ? .primary : Color.green)
                 .monospacedDigit() // keeps amounts vertically aligned
