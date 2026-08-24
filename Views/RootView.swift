@@ -55,19 +55,9 @@ struct RootView: View {
 // MARK: - Temporary placeholders
 // These exist only so the project compiles and runs before the real
 // screens are written. Delete each one as you build its real version.
-// BudgetListView has been removed — the real one now lives in
-// Views/Budgets/BudgetListView.swift.
-
-struct ReportsView: View {
-    var body: some View {
-        ContentUnavailableView(
-            "Reports",
-            systemImage: "chart.xyaxis.line",
-            description: Text("Coming in step 7.")
-        )
-        .navigationTitle("Reports")
-    }
-}
+// BudgetListView and ReportsView have been removed — the real ones now
+// live in Views/Budgets/ and Views/Reports/. Only SettingsView remains
+// a placeholder.
 
 struct SettingsView: View {
     var body: some View {
